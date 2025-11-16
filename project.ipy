@@ -1,1 +1,63 @@
 import numpy as np
+import matplotlib.pyplot as plt
+# Define bodies cleanly as dicts (position and velocity are 2D numpy arrays)
+bodies = {}
+bodies['Sun'] =   {'mass': 1.989e30, 'pos': np.array([0.0, 0.0]), 'vel': np.array([0.0, 0.0])}
+bodies['Earth'] = {'mass': 5.972e24, 'pos': np.array([1.496e11, 0.0]), 'vel': np.array([0.0, 29.78e3])}
+bodies['Mars'] =  {'mass': 6.39e23,   'pos': np.array([2.279e11, 0.0]), 'vel': np.array([0.0, 24.077e3])}
+
+def compute_accelerations(bodies):
+    acc = {name: np.zeros(2) for name in bodies}
+    G = 6.67430e-11
+    names = list(bodies.keys())
+    for i, ni in enumerate(names):
+        for j, nj in enumerate(names):
+            if i == j: 
+                continue
+            r_vec = bodies[nj]['pos'] - bodies[ni]['pos']
+            r = np.linalg.norm(r_vec)
+            if r == 0: 
+                continue
+            acc[ni] += G * bodies[nj]['mass'] * r_vec / r**3
+    return acc
+
+def simulate(bodies, dt, steps):
+    # store trajectories
+    traj = {name: np.zeros((steps+1, 2)) for name in bodies}
+    for name in bodies:
+        traj[name][0] = bodies[name]['pos']
+    # initial accelerations
+    a = compute_accelerations(bodies)
+    for k in range(steps):
+        for name in bodies:
+            bodies[name]['pos']+= bodies[name]['vel'] * dt + a[name]/2*dt**2
+        for name in bodies:
+            bodies[name]['vel'] = bodies[name]['vel'] + a[name] * dt
+        for name in bodies:
+            traj[name][k+1] = bodies[name]['pos']
+        a = compute_accelerations(bodies)
+    return traj
+
+# replace the previous pos_change loop with a physical simulation
+# simulate for 2 years with daily timestep
+dt = 3600.0
+total_days = 365*2*24
+steps = int(total_days)
+traj = simulate(bodies, dt, steps)
+
+# plot trajectories
+plt.figure(figsize=(8,8))
+plt.plot(traj['Earth'][:,0], traj['Earth'][:,1], label='Earth')
+plt.plot(traj['Mars'][:,0], traj['Mars'][:,1], label='Mars')
+plt.plot(traj['Sun'][:,0], traj['Sun'][:,1], label='Sun')
+plt.scatter(traj['Earth'][0,0], traj['Earth'][0,1], color='blue', s=40)
+plt.scatter(traj['Mars'][0,0], traj['Mars'][0,1], color='red', s=30)
+plt.scatter(traj['Sun'][0,0], traj['Sun'][0,1], color='yellow', s=80)
+plt.axis('equal')
+plt.legend()
+plt.show()
+# Spacecraft starting on Earth's surface, relative to Earth's pos/vel
+sc_pos = bodies['Earth']['pos'] + np.array([6.371e6, 0.0])
+sc_vel = bodies['Earth']['vel'] + np.array([0.0, 11.2e3])
+
+bodies['Sc'] = {'mass': 0.0, 'pos': sc_pos, 'vel': sc_vel}
