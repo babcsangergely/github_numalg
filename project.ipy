@@ -107,3 +107,72 @@ plt.scatter(traj['Sun'][0,0], traj['Sun'][0,1], color='yellow', s=80)
 plt.axis('equal')
 plt.legend()
 plt.show()
+
+# Runge-Kutta 4th order
+def simulate_rk4(bodies, dt, steps):
+    # store trajectories
+    traj = {name: np.zeros((steps+1, 2)) for name in bodies}
+    for name in bodies:
+        traj[name][0] = bodies[name]['pos'].copy()
+    
+    for k in range(steps):
+        # k1
+        a1 = compute_accelerations(bodies)
+        state1 = {name: np.concatenate([bodies[name]['pos'], bodies[name]['vel']]) for name in bodies}
+        
+        # k2
+        bodies_k2 = {}
+        for name in bodies:
+            pos = bodies[name]['pos'] + 0.5 * bodies[name]['vel'] * dt
+            vel = bodies[name]['vel'] + 0.5 * a1[name] * dt
+            bodies_k2[name] = {'mass': bodies[name]['mass'], 'pos': pos, 'vel': vel}
+        a2 = compute_accelerations(bodies_k2)
+        
+        # k3
+        bodies_k3 = {}
+        for name in bodies:
+            pos = bodies[name]['pos'] + 0.5 * bodies[name]['vel'] * dt + 0.25 * a1[name] * dt**2
+            vel = bodies[name]['vel'] + 0.5 * a2[name] * dt
+            bodies_k3[name] = {'mass': bodies[name]['mass'], 'pos': pos, 'vel': vel}
+        a3 = compute_accelerations(bodies_k3)
+        
+        # k4
+        bodies_k4 = {}
+        for name in bodies:
+            pos = bodies[name]['pos'] + bodies[name]['vel'] * dt + 0.5 * a3[name] * dt**2
+            vel = bodies[name]['vel'] + a3[name] * dt
+            bodies_k4[name] = {'mass': bodies[name]['mass'], 'pos': pos, 'vel': vel}
+        a4 = compute_accelerations(bodies_k4)
+        
+        # update
+        for name in bodies:
+            bodies[name]['pos'] = bodies[name]['pos'] + bodies[name]['vel'] * dt + (a1[name] + 2*a2[name] + 2*a3[name] + a4[name]) * dt**2 / 6.0
+            bodies[name]['vel'] = bodies[name]['vel'] + (a1[name] + 2*a2[name] + 2*a3[name] + a4[name]) * dt / 6.0
+            traj[name][k+1] = bodies[name]['pos'].copy()
+    
+    return traj
+
+# Reset bodies to initial state before RK4 simulation
+bodies['Sun'] =   {'mass': 1.989e30, 'pos': np.array([0.0, 0.0]), 'vel': np.array([0.0, 0.0])}
+bodies['Earth'] = {'mass': 5.972e24, 'pos': np.array([1.496e11, 0.0]), 'vel': np.array([0.0, 29.78e3])}
+bodies['Mars'] =  {'mass': 6.39e23,   'pos': np.array([2.279e11, 0.0]), 'vel': np.array([0.0, 24.077e3])}
+bodies['Sc'] = {'mass': 5e4,   'pos': np.array([1.496e11+6.371e6+500e3, 0.0]), 'vel': np.array([1.12e4, 2e4])}
+
+dt = 3600.0
+total_days = 400*24
+steps = int(total_days)
+traj_rk4 = simulate_rk4(bodies, dt, steps)
+
+# plot trajectories
+plt.figure(figsize=(8,8))
+plt.plot(traj_rk4['Earth'][:,0], traj_rk4['Earth'][:,1], label='Earth (RK4)')
+plt.plot(traj_rk4['Mars'][:,0], traj_rk4['Mars'][:,1], label='Mars (RK4)')
+plt.plot(traj_rk4['Sun'][:,0], traj_rk4['Sun'][:,1], label='Sun (RK4)')
+plt.plot(traj_rk4['Sc'][:,0], traj_rk4['Sc'][:,1], label='Spacecraft (RK4)')
+plt.scatter(traj_rk4['Earth'][-1,0], traj_rk4['Earth'][-1,1], color='blue', s=40)
+plt.scatter(traj_rk4['Mars'][-1,0], traj_rk4['Mars'][-1,1], color='red', s=30)
+plt.scatter(traj_rk4['Sun'][0,0], traj_rk4['Sun'][0,1], color='yellow', s=80)
+plt.axis('equal')
+plt.legend()
+plt.title('RK4 Integration')
+plt.show()
