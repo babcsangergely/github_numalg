@@ -5,6 +5,7 @@ bodies = {}
 bodies['Sun'] =   {'mass': 1.989e30, 'pos': np.array([0.0, 0.0]), 'vel': np.array([0.0, 0.0])}
 bodies['Earth'] = {'mass': 5.972e24, 'pos': np.array([1.496e11, 0.0]), 'vel': np.array([0.0, 29.78e3])}
 bodies['Mars'] =  {'mass': 6.39e23,   'pos': np.array([2.279e11, 0.0]), 'vel': np.array([0.0, 24.077e3])}
+bodies['Sc'] = {'mass': 5e4,   'pos': np.array([1.496e11+6.371e6+500e3, 0.0]), 'vel': np.array([1.12e4, 2e4])}
 
 def compute_accelerations(bodies):
     acc = {name: np.zeros(2) for name in bodies}
@@ -40,8 +41,9 @@ def simulate(bodies, dt, steps):
 
 # replace the previous pos_change loop with a physical simulation
 # simulate for 2 years with daily timestep
+
 dt = 3600.0
-total_days = 365*2*24
+total_days = 400*24
 steps = int(total_days)
 traj = simulate(bodies, dt, steps)
 
@@ -50,14 +52,58 @@ plt.figure(figsize=(8,8))
 plt.plot(traj['Earth'][:,0], traj['Earth'][:,1], label='Earth')
 plt.plot(traj['Mars'][:,0], traj['Mars'][:,1], label='Mars')
 plt.plot(traj['Sun'][:,0], traj['Sun'][:,1], label='Sun')
-plt.scatter(traj['Earth'][0,0], traj['Earth'][0,1], color='blue', s=40)
-plt.scatter(traj['Mars'][0,0], traj['Mars'][0,1], color='red', s=30)
+plt.plot(traj['Sc'][:,0], traj['Sc'][:,1], label='Space craft')
+plt.scatter(traj['Earth'][-1,0], traj['Earth'][-1,1], color='blue', s=40)
+plt.scatter(traj['Mars'][-1,0], traj['Mars'][-1,1], color='red', s=30)
 plt.scatter(traj['Sun'][0,0], traj['Sun'][0,1], color='yellow', s=80)
 plt.axis('equal')
 plt.legend()
 plt.show()
-# Spacecraft starting on Earth's surface, relative to Earth's pos/vel
-sc_pos = bodies['Earth']['pos'] + np.array([6.371e6, 0.0])
-sc_vel = bodies['Earth']['vel'] + np.array([0.0, 11.2e3])
 
-bodies['Sc'] = {'mass': 0.0, 'pos': sc_pos, 'vel': sc_vel}
+
+# leapfrog
+def simulate_lp(bodies, dt, steps):
+    # store trajectories
+    traj = {name: np.zeros((steps+1, 2)) for name in bodies}
+    for name in bodies:
+        traj[name][0] = bodies[name]['pos']
+    # initial accelerations
+    a = compute_accelerations(bodies)
+    for k in range(steps):
+        # half-step velocity
+        for name in bodies:
+            bodies[name]['vel'] = bodies[name]['vel'] + 0.5 * a[name] * dt
+        # full-step position
+        for name in bodies:
+            bodies[name]['pos'] = bodies[name]['pos'] + bodies[name]['vel'] * dt
+        # recompute accelerations
+        a_new = compute_accelerations(bodies)
+        # finish velocity step
+        for name in bodies:
+            bodies[name]['vel'] = bodies[name]['vel'] + 0.5 * a_new[name] * dt
+            traj[name][k+1] = bodies[name]['pos']
+        a = a_new
+    return traj
+
+# Reset bodies to initial state before leapfrog simulation
+bodies['Sun'] =   {'mass': 1.989e30, 'pos': np.array([0.0, 0.0]), 'vel': np.array([0.0, 0.0])}
+bodies['Earth'] = {'mass': 5.972e24, 'pos': np.array([1.496e11, 0.0]), 'vel': np.array([0.0, 29.78e3])}
+bodies['Mars'] =  {'mass': 6.39e23,   'pos': np.array([2.279e11, 0.0]), 'vel': np.array([0.0, 24.077e3])}
+bodies['Sc'] = {'mass': 5e4,   'pos': np.array([1.496e11+6.371e6+500e3, 0.0]), 'vel': np.array([1.12e4, 2e4])}
+
+dt = 3600.0
+total_days = 400*24
+steps = int(total_days)
+traj = simulate_lp(bodies, dt, steps)
+# plot trajectories
+plt.figure(figsize=(8,8))
+plt.plot(traj['Earth'][:,0], traj['Earth'][:,1], label='Earth')
+plt.plot(traj['Mars'][:,0], traj['Mars'][:,1], label='Mars')
+plt.plot(traj['Sun'][:,0], traj['Sun'][:,1], label='Sun')
+plt.plot(traj['Sc'][:,0], traj['Sc'][:,1], label='Space craft')
+plt.scatter(traj['Earth'][-1,0], traj['Earth'][-1,1], color='blue', s=40)
+plt.scatter(traj['Mars'][-1,0], traj['Mars'][-1,1], color='red', s=30)
+plt.scatter(traj['Sun'][0,0], traj['Sun'][0,1], color='yellow', s=80)
+plt.axis('equal')
+plt.legend()
+plt.show()
